@@ -178,7 +178,7 @@ class PublisherController extends Controller
     public function signIn(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            "username" => 'required|min:2|max:190|unique:publishers',
+            "username" => 'required|string|alpha_dash|min:2|max:190|unique:publishers,username',
             'display_name' => 'required|min:2|max:190',
             'image' => 'nullable|image',
             'mobile' => 'required|min:2|max:190|unique:publishers,mobile',
@@ -226,15 +226,21 @@ class PublisherController extends Controller
     {
 
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email|min:2|max:190',
+            // 'email' => 'required|email|min:2|max:190',
+            'identify' => 'required',
             'password' => 'required|min:6|max:190',
             'device_id' => 'required',
             'device_type' => 'required|in:ios,android'
         ]);
 
         if ($validator->passes()) {
-            if (!auth('publisher')->attempt(['email' => convert2english($request['email']), 'password' => convert2english($request['password'])])) {
-                $msg = $request['lang'] == 'ar' ? ' كلمه المرور او الاميل غير صحيح.' : ' password or email is wrong.';
+            $value = request()->input('identify');
+            $filed = $this->filterIdentifyLogin($value);
+            request()->merge([ $filed => $value ]);
+
+
+            if (!auth('publisher')->attempt([$filed => convert2english($value), 'password' => convert2english($request['password'])])) {
+                $msg = $request['lang'] == 'ar' ? ' كلمه المرور او الاميل غير صحيح.' : ' password or '.$filed.' is wrong.';
                 return response()->json(['status' => false, 'msg' => $msg]);
             }
             $user = auth('publisher')->user();
@@ -243,10 +249,6 @@ class PublisherController extends Controller
             $user->device_type = $request['device_type'];
             $user->save();
 
-//             if($user->verified == 0){
-//                 $msg = $request['lang'] == 'ar' ? 'لم يتم تاكيد الحساب بعد.' : 'account not verfied .';
-//                 return response()->json(['status'=>false,'msg'=>$msg]);
-//             }
 
             if ($user->status == 0) {
                 $msg = $request['lang'] == 'ar' ? 'المستخدم محظور حاليا يمكن التواصل مع الاداره.' : ' user has been blocked can contact with adminstration.';
@@ -273,6 +275,20 @@ class PublisherController extends Controller
     }
 
       // login
+
+
+    public function filterIdentifyLogin($identify) {
+
+        if (filter_var($identify, FILTER_VALIDATE_EMAIL)) {
+              return 'email';
+            } elseif (preg_match("/^[0-9]+$/i", $identify)) {
+              return 'mobile';
+            } else {
+               return 'username'; 
+            }
+
+    }// end filterIdentifyLogin
+
     public function socialLogin(Request $request)
     {
 
@@ -1039,12 +1055,16 @@ class PublisherController extends Controller
     {
 
             $validator = Validator::make($request->all(), [
-                'email' => "required|email|exists:publishers,email",
+                // 'email' => "required|email|exists:publishers,email",
+                'identify' => "required",
             ]);
 
             if ($validator->passes()) {
+                $value = request()->input('identify');
+                $filed = $this->filterIdentifyLogin($value);
+                request()->merge([ $filed => $value ]);
                 $lang = $request['lang'];
-                $user = User::where('email', $request['email'])->first();
+                $user = User::where($filed, $value)->first();
                 $user->temporay_password = randomString(6, 'num');
                 $user->update();
                 \Mail::to($user)->send(new  \App\Mail\ResetPassword($user->username, $user->temporay_password));
@@ -1132,13 +1152,18 @@ class PublisherController extends Controller
 
 
             $validator = Validator::make($request->all(), [
-                'email' => "required|email|exists:publishers,email",
+                // 'email' => "required|email|exists:publishers,email",
+                'identify' => "required",
                 'temp_password' => "required"
             ]);
 
             if ($validator->passes()) {
+                $value = request()->input('identify');
+                $filed = $this->filterIdentifyLogin($value);
+                request()->merge([ $filed => $value ]);
                 $lang = $request['lang'];
-                $user = User::where('email', $request['email'])->first();
+                $user = User::where($filed, $value)->first();
+
                 if ($user->temporay_password != $request['temp_password']) {
                     $msg = $lang == "ar" ? "كود الدخول الموقت غير صحيح" : "temporary code for login not success";
                     return response()->json(['status' => false, 'data' => ["publisher" => ['temp' => ""]], 'msg' => $msg]);

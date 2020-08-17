@@ -16,7 +16,7 @@ class CreatePublishersTable extends Migration
         Schema::create('publishers', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('display_name');
-            $table->string('username');
+            $table->string('username')->unique();
             $table->string('image')->default('default_image.png');
             $table->string('mobile')->unique()->nullable();
             $table->string('city')->nullable();
